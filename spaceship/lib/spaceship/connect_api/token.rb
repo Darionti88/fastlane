@@ -28,6 +28,9 @@ module Spaceship
       # key is for App Store or Enterprise so this is the temporary workaround
       attr_accessor :in_house
 
+      # Attribute to support and Individual Api Key for Token creation
+      attr_accessor :individual_key
+
       def self.from(hash: nil, filepath: nil)
         api_token ||= self.create(**hash.transform_keys(&:to_sym)) if hash
         api_token ||= self.from_json_file(filepath) if filepath
@@ -49,7 +52,7 @@ module Spaceship
         self.create(**json)
       end
 
-      def self.create(key_id: nil, issuer_id: nil, filepath: nil, key: nil, is_key_content_base64: false, duration: nil, in_house: nil, **)
+      def self.create(key_id: nil, issuer_id: nil, filepath: nil, key: nil, is_key_content_base64: false, duration: nil, in_house: nil, individual_key: false, **)
         key_id ||= ENV['SPACESHIP_CONNECT_API_KEY_ID']
         issuer_id ||= ENV['SPACESHIP_CONNECT_API_ISSUER_ID']
         filepath ||= ENV['SPACESHIP_CONNECT_API_KEY_FILEPATH']
@@ -75,13 +78,14 @@ module Spaceship
         )
       end
 
-      def initialize(key_id: nil, issuer_id: nil, key: nil, key_raw: nil, duration: nil, in_house: nil)
+      def initialize(key_id: nil, issuer_id: nil, key: nil, key_raw: nil, duration: nil, in_house: nil, individual_key: false)
         @key_id = key_id
         @key = key
         @key_raw = key_raw
         @issuer_id = issuer_id
         @duration = duration
         @in_house = in_house
+        @individual_key = individual_key
 
         @duration ||= DEFAULT_TOKEN_DURATION
         @duration = @duration.to_i if @duration
@@ -99,7 +103,10 @@ module Spaceship
         }
 
         payload = {
-          iss: issuer_id,
+          #  # Conditionally add "sub" key based on individual_key
+          sub: individual_key ? 'user' : nil,
+          # Include "iss" key only if individual_key is false
+          iss: individual_key ? nil : issuer_id,
           # Reduce the issued-at-time in case our time is slighly ahead of Apple's servers, which causes the token to be rejected.
           iat: now.to_i - 60,
           exp: @expiration.to_i,
